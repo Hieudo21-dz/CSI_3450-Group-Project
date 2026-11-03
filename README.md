@@ -7,19 +7,6 @@ A relational database built in **Microsoft SQL Server** and connected to a **web
 
 ---
 
-## Team
-
-<!-- Group name and three members -->
-**Group name:** TBD
-
-| Member | Responsibilities |
-|--------|------------------|
-| Name | |
-| Name | |
-| Name | |
-
----
-
 ## Tech Stack
 
 <!-- fill in once decided -->
