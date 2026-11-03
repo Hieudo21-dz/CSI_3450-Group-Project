@@ -1,0 +1,34 @@
+# Secrets: never commit database passwords or connection strings
+.env
+*.env
+appsettings.Development.json
+secrets.*
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Node
+node_modules/
+
+# Java
+target/
+*.class
+
+# .NET
+bin/
+obj/
+
+# SQL Server backups and data files
+*.bak
+*.mdf
+*.ldf
+
+# IDEs and OS
+.vscode/
+.idea/
+.vs/
+.DS_Store
+Thumbs.db
