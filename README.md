@@ -1,4 +1,4 @@
-# Project Title (TBD) – CSI 3450
+# Group Project– CSI 3450
 
 Final project for **CSI 3450 – Database Design & Implementation** (Fall 2026).
 
