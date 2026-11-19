@@ -11,8 +11,8 @@ A relational database built in **Microsoft SQL Server** and connected to a **web
 
 <!-- fill in once decided -->
 - **Database:** Microsoft SQL Server
-- **Application:** TBD (e.g. Python/Flask, Java/Spring Boot, ASP.NET, PHP, Node.js)
-- **Driver / connector:** TBD (e.g. pyodbc, JDBC, ADO.NET)
+- **Application:** Python (connectivity baseline established)
+- **Driver / connector:** pyodbc (ODBC Driver 18 for SQL Server)
 
 ---
 
@@ -82,5 +82,12 @@ CSI3450_Final_Project/
 
 <!-- fill in once the app is built: how to create the database, configure the connection, and run the app -->
 1. Run the scripts in `database/schema/`, then `database/data/`, in SQL Server.
-2. Set up the database connection for the app (keep credentials out of the repo).
-3. Run the app.
+2. Configure app database settings:
+	- Copy `app/.env.example` to `app/.env`
+	- Fill in SQL Server connection values
+3. Minimal Python run path (Windows):
+	- `cd app`
+	- `py -3.9 -m venv .venv`
+	- `.\.venv\Scripts\Activate.ps1`
+   - `.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt`
+   - `.\\.venv\\Scripts\\python.exe run_health_check.py`
