@@ -1,0 +1,608 @@
+/* =========================================================
+   Project FreeBee - Allergen Free Restaurant Database
+   Group J - CSI 3450 Final Project
+   01_create_tables.sql
+   Target: Microsoft SQL Server
+   ========================================================= */
+
+IF DB_ID('FreeBee') IS NULL CREATE DATABASE FreeBee;
+GO
+USE FreeBee;
+GO
+
+/* Drop child tables first so the script can be re-run */
+DROP TABLE IF EXISTS ORDER_ITEM, ORDERS, MENU_ALLERGEN, CUSTOMER_ALLERGY,
+                     MENU_ITEM, CUSTOMER, ALLERGEN;
+GO
+
+CREATE TABLE ALLERGEN (
+    AllergenID    INT IDENTITY(1,1) CONSTRAINT PK_ALLERGEN PRIMARY KEY,
+    AllergenName  VARCHAR(50)   NOT NULL CONSTRAINT UQ_ALLERGEN_NAME UNIQUE,
+    SafetyNote    VARCHAR(255)  NULL
+);
+
+CREATE TABLE CUSTOMER (
+    CustomerID  INT IDENTITY(1,1) CONSTRAINT PK_CUSTOMER PRIMARY KEY,
+    FirstName   VARCHAR(50)   NOT NULL,
+    LastName    VARCHAR(50)   NOT NULL,
+    Phone       VARCHAR(20)   NULL,
+    Email       VARCHAR(100)  NOT NULL CONSTRAINT UQ_CUSTOMER_EMAIL UNIQUE
+);
+
+/* Bridge table: CUSTOMER M:N ALLERGEN */
+CREATE TABLE CUSTOMER_ALLERGY (
+    CustomerID  INT          NOT NULL
+        CONSTRAINT FK_CA_CUSTOMER REFERENCES CUSTOMER (CustomerID),
+    AllergenID  INT          NOT NULL
+        CONSTRAINT FK_CA_ALLERGEN REFERENCES ALLERGEN (AllergenID),
+    Severity    VARCHAR(10)  NOT NULL
+        CONSTRAINT CK_CA_SEVERITY CHECK (Severity IN ('Mild', 'Moderate', 'Severe')),
+    CONSTRAINT PK_CUSTOMER_ALLERGY PRIMARY KEY (CustomerID, AllergenID)
+);
+
+CREATE TABLE MENU_ITEM (
+    MenuItemID  INT IDENTITY(1,1) CONSTRAINT PK_MENU_ITEM PRIMARY KEY,
+    ItemName    VARCHAR(100)  NOT NULL CONSTRAINT UQ_MENU_ITEM_NAME UNIQUE,
+    Category    VARCHAR(10)   NOT NULL
+        CONSTRAINT CK_MENU_CATEGORY CHECK (Category IN ('Appetizer', 'Entree', 'Side', 'Dessert', 'Beverage')),
+    Price       DECIMAL(6,2)  NOT NULL CONSTRAINT CK_MENU_PRICE CHECK (Price > 0)
+);
+
+/* Bridge table: MENU_ITEM M:N ALLERGEN.
+   An item with no rows here is free of all tracked allergens. */
+CREATE TABLE MENU_ALLERGEN (
+    MenuItemID  INT  NOT NULL
+        CONSTRAINT FK_MA_MENU_ITEM REFERENCES MENU_ITEM (MenuItemID),
+    AllergenID  INT  NOT NULL
+        CONSTRAINT FK_MA_ALLERGEN  REFERENCES ALLERGEN (AllergenID),
+    CONSTRAINT PK_MENU_ALLERGEN PRIMARY KEY (MenuItemID, AllergenID)
+);
+
+CREATE TABLE ORDERS (
+    OrderID      INT IDENTITY(1,1) CONSTRAINT PK_ORDERS PRIMARY KEY,
+    CustomerID   INT           NOT NULL
+        CONSTRAINT FK_ORDERS_CUSTOMER REFERENCES CUSTOMER (CustomerID),
+    OrderDate    DATETIME      NOT NULL CONSTRAINT DF_ORDERS_DATE   DEFAULT GETDATE(),
+    TotalAmount  DECIMAL(8,2)  NOT NULL CONSTRAINT DF_ORDERS_TOTAL  DEFAULT 0
+        CONSTRAINT CK_ORDERS_TOTAL CHECK (TotalAmount >= 0),
+    OrderStatus  VARCHAR(10)   NOT NULL CONSTRAINT DF_ORDERS_STATUS DEFAULT 'Pending'
+        CONSTRAINT CK_ORDERS_STATUS CHECK (OrderStatus IN ('Pending', 'Confirmed', 'Completed', 'Cancelled'))
+);
+
+/* Bridge table: ORDERS M:N MENU_ITEM */
+CREATE TABLE ORDER_ITEM (
+    OrderID     INT  NOT NULL
+        CONSTRAINT FK_OI_ORDERS    REFERENCES ORDERS (OrderID),
+    MenuItemID  INT  NOT NULL
+        CONSTRAINT FK_OI_MENU_ITEM REFERENCES MENU_ITEM (MenuItemID),
+    Quantity    INT  NOT NULL
+        CONSTRAINT CK_OI_QUANTITY CHECK (Quantity BETWEEN 1 AND 50),
+    CONSTRAINT PK_ORDER_ITEM PRIMARY KEY (OrderID, MenuItemID)
+);
+GO
+
+
+/* =========================================================
+   Project FreeBee - Allergen Free Restaurant Database
+   02_sample_data.sql
+   Run AFTER 01_create_tables.sql. All people are made up.
+   Every sample order is safe for its customer.
+   ========================================================= */
+USE FreeBee;
+GO
+
+-- ALLERGEN: 10 rows
+SET IDENTITY_INSERT ALLERGEN ON;
+INSERT INTO ALLERGEN (AllergenID, AllergenName, SafetyNote) VALUES
+    (1, 'Peanuts', 'Check sauces, satay and desserts. Use a separate fryer and utensils.'),
+    (2, 'Tree Nuts', 'Includes almonds, walnuts, pecans and cashews. Check desserts and milk substitutes.'),
+    (3, 'Dairy', 'Includes milk, butter, cream and cheese. Check sauces and baked goods.'),
+    (4, 'Eggs', 'Check pasta, batters, mayonnaise and baked goods.'),
+    (5, 'Gluten', 'Found in wheat, barley and rye. Check breading, pasta, buns and soy sauce.'),
+    (6, 'Soy', 'Check soy sauce, tofu, marinades and vegetable oil blends.'),
+    (7, 'Fish', 'Includes fish sauce and anchovy. Use a separate grill area.'),
+    (8, 'Shellfish', 'Includes shrimp, crab and lobster. Use a separate pan and utensils.'),
+    (9, 'Sesame', 'Check buns, tahini, sesame oil and stir-fry garnish.'),
+    (10, 'Mustard', 'Check dressings, coleslaw and marinades.');
+SET IDENTITY_INSERT ALLERGEN OFF;
+GO
+
+-- CUSTOMER: 20 rows
+SET IDENTITY_INSERT CUSTOMER ON;
+INSERT INTO CUSTOMER (CustomerID, FirstName, LastName, Phone, Email) VALUES
+    (1, 'Olivia', 'Bennett', '248-555-0110', 'olivia.bennett@example.com'),
+    (2, 'Liam', 'Carter', '248-555-0111', 'liam.carter@example.com'),
+    (3, 'Ava', 'Nguyen', '248-555-0112', 'ava.nguyen@example.com'),
+    (4, 'Noah', 'Patel', '248-555-0113', 'noah.patel@example.com'),
+    (5, 'Emma', 'Rodriguez', '248-555-0114', 'emma.rodriguez@example.com'),
+    (6, 'Mason', 'Kim', '248-555-0115', 'mason.kim@example.com'),
+    (7, 'Sophia', 'Johnson', '248-555-0116', 'sophia.johnson@example.com'),
+    (8, 'Lucas', 'Okafor', '248-555-0117', 'lucas.okafor@example.com'),
+    (9, 'Isabella', 'Rossi', '248-555-0118', 'isabella.rossi@example.com'),
+    (10, 'Ethan', 'Walker', '248-555-0119', 'ethan.walker@example.com'),
+    (11, 'Mia', 'Hernandez', '248-555-0120', 'mia.hernandez@example.com'),
+    (12, 'James', 'Novak', '248-555-0121', 'james.novak@example.com'),
+    (13, 'Charlotte', 'Ali', '248-555-0122', 'charlotte.ali@example.com'),
+    (14, 'Benjamin', 'Schmidt', '248-555-0123', 'benjamin.schmidt@example.com'),
+    (15, 'Amelia', 'Tanaka', '248-555-0124', 'amelia.tanaka@example.com'),
+    (16, 'Henry', 'Brooks', '248-555-0125', 'henry.brooks@example.com'),
+    (17, 'Harper', 'Dubois', '248-555-0126', 'harper.dubois@example.com'),
+    (18, 'Daniel', 'Mensah', '248-555-0127', 'daniel.mensah@example.com'),
+    (19, 'Evelyn', 'Park', '248-555-0128', 'evelyn.park@example.com'),
+    (20, 'Jack', 'Sullivan', '248-555-0129', 'jack.sullivan@example.com');
+SET IDENTITY_INSERT CUSTOMER OFF;
+GO
+
+-- CUSTOMER_ALLERGY: 25 rows
+INSERT INTO CUSTOMER_ALLERGY (CustomerID, AllergenID, Severity) VALUES
+    (1, 1, 'Severe'),
+    (1, 3, 'Moderate'),
+    (3, 8, 'Severe'),
+    (4, 5, 'Moderate'),
+    (5, 2, 'Severe'),
+    (5, 1, 'Severe'),
+    (5, 9, 'Mild'),
+    (7, 3, 'Mild'),
+    (8, 4, 'Moderate'),
+    (8, 10, 'Mild'),
+    (9, 7, 'Severe'),
+    (9, 8, 'Severe'),
+    (11, 6, 'Moderate'),
+    (12, 5, 'Severe'),
+    (12, 3, 'Severe'),
+    (13, 9, 'Severe'),
+    (15, 1, 'Mild'),
+    (16, 4, 'Severe'),
+    (16, 3, 'Moderate'),
+    (16, 5, 'Mild'),
+    (16, 6, 'Mild'),
+    (18, 2, 'Moderate'),
+    (19, 8, 'Mild'),
+    (19, 10, 'Moderate'),
+    (20, 3, 'Severe');
+GO
+
+-- MENU_ITEM: 27 rows
+SET IDENTITY_INSERT MENU_ITEM ON;
+INSERT INTO MENU_ITEM (MenuItemID, ItemName, Category, Price) VALUES
+    (1, 'Bruschetta', 'Appetizer', 8.50),
+    (2, 'Shrimp Cocktail', 'Appetizer', 12.00),
+    (3, 'Garden Salad', 'Appetizer', 7.00),
+    (4, 'Mozzarella Sticks', 'Appetizer', 9.00),
+    (5, 'Chicken Satay', 'Appetizer', 10.50),
+    (6, 'Grilled Salmon', 'Entree', 22.00),
+    (7, 'Ribeye Steak', 'Entree', 29.00),
+    (8, 'Chicken Alfredo', 'Entree', 17.50),
+    (9, 'Pad Thai', 'Entree', 16.00),
+    (10, 'Cheeseburger', 'Entree', 14.00),
+    (11, 'Veggie Stir Fry', 'Entree', 13.50),
+    (12, 'Herb Roasted Chicken', 'Entree', 18.00),
+    (13, 'Shrimp Scampi', 'Entree', 20.00),
+    (14, 'Fish and Chips', 'Entree', 16.50),
+    (15, 'French Fries', 'Side', 4.50),
+    (16, 'Steamed Rice', 'Side', 3.50),
+    (17, 'Mac and Cheese', 'Side', 6.00),
+    (18, 'Coleslaw', 'Side', 4.00),
+    (19, 'Roasted Vegetables', 'Side', 5.00),
+    (20, 'Chocolate Brownie', 'Dessert', 7.50),
+    (21, 'Fruit Sorbet', 'Dessert', 6.00),
+    (22, 'Cheesecake', 'Dessert', 8.00),
+    (23, 'Peanut Butter Pie', 'Dessert', 8.00),
+    (24, 'Lemonade', 'Beverage', 3.50),
+    (25, 'Iced Tea', 'Beverage', 3.00),
+    (26, 'Vanilla Milkshake', 'Beverage', 6.00),
+    (27, 'Almond Milk Latte', 'Beverage', 5.50);
+SET IDENTITY_INSERT MENU_ITEM OFF;
+GO
+
+-- MENU_ALLERGEN: 42 rows
+INSERT INTO MENU_ALLERGEN (MenuItemID, AllergenID) VALUES
+    (1, 5),
+    (2, 8),
+    (4, 3),
+    (4, 5),
+    (4, 4),
+    (5, 1),
+    (5, 6),
+    (6, 7),
+    (8, 3),
+    (8, 5),
+    (8, 4),
+    (9, 1),
+    (9, 4),
+    (9, 6),
+    (9, 7),
+    (10, 3),
+    (10, 5),
+    (10, 9),
+    (11, 6),
+    (11, 9),
+    (13, 8),
+    (13, 3),
+    (13, 5),
+    (14, 7),
+    (14, 5),
+    (14, 4),
+    (17, 3),
+    (17, 5),
+    (18, 4),
+    (18, 10),
+    (20, 3),
+    (20, 4),
+    (20, 5),
+    (20, 2),
+    (22, 3),
+    (22, 4),
+    (22, 5),
+    (23, 1),
+    (23, 3),
+    (23, 5),
+    (26, 3),
+    (27, 2);
+GO
+
+-- ORDERS: 38 rows
+SET IDENTITY_INSERT ORDERS ON;
+INSERT INTO ORDERS (OrderID, CustomerID, OrderDate, TotalAmount, OrderStatus) VALUES
+    (1, 16, '2026-09-02T11:15:00', 39.50, 'Completed'),
+    (2, 15, '2026-09-07T19:10:00', 8.00, 'Completed'),
+    (3, 4, '2026-09-11T11:30:00', 13.50, 'Completed'),
+    (4, 12, '2026-09-13T17:00:00', 56.00, 'Completed'),
+    (5, 5, '2026-09-13T17:30:00', 21.00, 'Completed'),
+    (6, 17, '2026-09-15T17:55:00', 48.00, 'Completed'),
+    (7, 17, '2026-09-16T13:10:00', 59.00, 'Completed'),
+    (8, 3, '2026-09-27T17:30:00', 16.50, 'Completed'),
+    (9, 1, '2026-09-29T18:45:00', 81.00, 'Completed'),
+    (10, 20, '2026-10-07T17:15:00', 47.00, 'Completed'),
+    (11, 15, '2026-10-08T13:55:00', 12.00, 'Cancelled'),
+    (12, 7, '2026-10-08T20:30:00', 41.50, 'Completed'),
+    (13, 16, '2026-10-10T18:55:00', 22.00, 'Completed'),
+    (14, 17, '2026-10-14T11:30:00', 52.00, 'Completed'),
+    (15, 14, '2026-10-15T13:45:00', 119.00, 'Completed'),
+    (16, 10, '2026-10-17T12:30:00', 80.50, 'Completed'),
+    (17, 7, '2026-10-18T13:55:00', 32.50, 'Completed'),
+    (18, 14, '2026-10-21T18:30:00', 44.50, 'Completed'),
+    (19, 19, '2026-10-22T17:25:00', 37.00, 'Completed'),
+    (20, 7, '2026-10-24T18:55:00', 72.50, 'Completed'),
+    (21, 4, '2026-10-25T11:45:00', 5.00, 'Completed'),
+    (22, 4, '2026-10-25T17:15:00', 44.00, 'Completed'),
+    (23, 3, '2026-10-26T18:00:00', 3.50, 'Completed'),
+    (24, 14, '2026-10-27T12:00:00', 12.00, 'Completed'),
+    (25, 10, '2026-10-28T12:45:00', 18.00, 'Completed'),
+    (26, 12, '2026-10-29T19:55:00', 17.00, 'Completed'),
+    (27, 11, '2026-10-29T20:55:00', 20.00, 'Completed'),
+    (28, 12, '2026-11-01T11:30:00', 112.00, 'Completed'),
+    (29, 1, '2026-11-01T12:10:00', 43.00, 'Completed'),
+    (30, 11, '2026-11-02T17:55:00', 6.00, 'Completed'),
+    (31, 18, '2026-11-02T19:40:00', 3.00, 'Completed'),
+    (32, 20, '2026-11-05T18:00:00', 21.00, 'Cancelled'),
+    (33, 12, '2026-11-05T19:10:00', 58.00, 'Completed'),
+    (34, 8, '2026-11-09T13:45:00', 168.00, 'Completed'),
+    (35, 9, '2026-11-13T12:15:00', 44.00, 'Cancelled'),
+    (36, 14, '2026-11-13T13:00:00', 43.50, 'Completed'),
+    (37, 17, '2026-11-13T18:55:00', 37.50, 'Completed'),
+    (38, 1, '2026-11-14T18:55:00', 36.50, 'Pending');
+SET IDENTITY_INSERT ORDERS OFF;
+GO
+
+-- ORDER_ITEM: 85 rows
+INSERT INTO ORDER_ITEM (OrderID, MenuItemID, Quantity) VALUES
+    (1, 3, 1),
+    (1, 7, 1),
+    (1, 16, 1),
+    (2, 22, 1),
+    (3, 15, 3),
+    (4, 2, 2),
+    (4, 9, 2),
+    (5, 21, 2),
+    (5, 25, 3),
+    (6, 3, 1),
+    (6, 14, 2),
+    (6, 22, 1),
+    (7, 5, 2),
+    (7, 13, 1),
+    (7, 17, 1),
+    (7, 26, 2),
+    (8, 14, 1),
+    (9, 7, 1),
+    (9, 14, 2),
+    (9, 18, 2),
+    (9, 27, 2),
+    (10, 6, 2),
+    (10, 25, 1),
+    (11, 25, 2),
+    (11, 26, 1),
+    (12, 2, 3),
+    (12, 27, 1),
+    (13, 6, 1),
+    (14, 6, 2),
+    (14, 22, 1),
+    (15, 3, 1),
+    (15, 6, 2),
+    (15, 10, 2),
+    (15, 13, 2),
+    (16, 6, 2),
+    (16, 11, 2),
+    (16, 16, 1),
+    (16, 17, 1),
+    (17, 1, 3),
+    (17, 3, 1),
+    (18, 1, 1),
+    (18, 12, 2),
+    (19, 5, 2),
+    (19, 23, 2),
+    (20, 5, 1),
+    (20, 6, 2),
+    (20, 12, 1),
+    (21, 19, 1),
+    (22, 5, 1),
+    (22, 7, 1),
+    (22, 15, 1),
+    (23, 16, 1),
+    (24, 2, 1),
+    (25, 4, 2),
+    (26, 16, 2),
+    (26, 18, 1),
+    (26, 25, 2),
+    (27, 18, 3),
+    (27, 23, 1),
+    (28, 7, 3),
+    (28, 21, 3),
+    (28, 24, 2),
+    (29, 7, 1),
+    (29, 18, 1),
+    (29, 19, 2),
+    (30, 21, 1),
+    (31, 25, 1),
+    (32, 5, 2),
+    (33, 2, 2),
+    (33, 11, 2),
+    (33, 16, 2),
+    (34, 1, 2),
+    (34, 6, 3),
+    (34, 7, 2),
+    (34, 11, 2),
+    (35, 1, 2),
+    (35, 11, 2),
+    (36, 5, 1),
+    (36, 11, 2),
+    (36, 21, 1),
+    (37, 11, 1),
+    (37, 17, 1),
+    (37, 21, 3),
+    (38, 1, 3),
+    (38, 27, 2);
+GO
+
+
+/* =========================================================
+   Project FreeBee - Allergen Free Restaurant Database
+   03_triggers.sql
+   Run AFTER 02_sample_data.sql.
+   ========================================================= */
+USE FreeBee;
+GO
+
+/* ---------------------------------------------------------
+   TRIGGER 1: Order Safety Verification
+   Blocks an item from being added to an order when the item
+   contains an allergen that the order's customer is allergic to.
+   Raises error 50001 with a message the app can show as-is,
+   and the insert/update is undone.
+   --------------------------------------------------------- */
+CREATE OR ALTER TRIGGER TRG_ORDER_ITEM_SAFETY
+ON ORDER_ITEM
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Msg NVARCHAR(400);
+
+    /* Find a conflict (most severe first) and build the message */
+    SELECT TOP (1)
+           @Msg = CONCAT('Unsafe order blocked: ', M.ItemName, ' contains ', A.AllergenName,
+                         ', and ', C.FirstName, ' ', C.LastName, ' has a ',
+                         LOWER(CA.Severity), ' ', A.AllergenName, ' allergy.')
+    FROM   inserted I
+    JOIN   ORDERS O            ON O.OrderID     = I.OrderID
+    JOIN   CUSTOMER C          ON C.CustomerID  = O.CustomerID
+    JOIN   CUSTOMER_ALLERGY CA ON CA.CustomerID = O.CustomerID
+    JOIN   MENU_ALLERGEN MA    ON MA.MenuItemID = I.MenuItemID
+                              AND MA.AllergenID = CA.AllergenID
+    JOIN   MENU_ITEM M         ON M.MenuItemID  = I.MenuItemID
+    JOIN   ALLERGEN A          ON A.AllergenID  = CA.AllergenID
+    ORDER BY CASE CA.Severity WHEN 'Severe' THEN 1 WHEN 'Moderate' THEN 2 ELSE 3 END;
+
+    IF @Msg IS NOT NULL
+    BEGIN
+        THROW 50001, @Msg, 1;
+    END
+END
+GO
+
+/* ---------------------------------------------------------
+   TRIGGER 2: keep ORDERS.TotalAmount correct
+   Recalculates the order total whenever its items are added,
+   changed or removed, so the app never has to send a total.
+   --------------------------------------------------------- */
+CREATE OR ALTER TRIGGER TRG_ORDER_ITEM_TOTAL
+ON ORDER_ITEM
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE O
+    SET    TotalAmount = ISNULL((SELECT SUM(OI.Quantity * M.Price)
+                                 FROM   ORDER_ITEM OI
+                                 JOIN   MENU_ITEM M ON M.MenuItemID = OI.MenuItemID
+                                 WHERE  OI.OrderID = O.OrderID), 0)
+    FROM   ORDERS O
+    WHERE  O.OrderID IN (SELECT OrderID FROM inserted
+                         UNION
+                         SELECT OrderID FROM deleted);
+END
+GO
+
+
+/* =========================================================
+   Project FreeBee - Allergen Free Restaurant Database
+   05_views_queries.sql
+   Run AFTER 01-03. Two views the app reads from, then the
+   report queries. Highlight one query and run it to get a
+   screenshot of just that result.
+   ========================================================= */
+USE FreeBee;
+GO
+
+/* ===================== VIEWS ===================== */
+
+/* Every (customer, menu item) pair that is SAFE: the item contains
+   none of the customer's allergens. The app filters by CustomerID. */
+CREATE OR ALTER VIEW VW_SAFE_MENU AS
+SELECT C.CustomerID, M.MenuItemID, M.ItemName, M.Category, M.Price
+FROM   CUSTOMER C
+CROSS JOIN MENU_ITEM M
+WHERE  NOT EXISTS (SELECT 1
+                   FROM   CUSTOMER_ALLERGY CA
+                   JOIN   MENU_ALLERGEN MA ON MA.AllergenID = CA.AllergenID
+                   WHERE  CA.CustomerID = C.CustomerID
+                     AND  MA.MenuItemID = M.MenuItemID);
+GO
+
+/* One row per customer allergy, with names instead of IDs. */
+CREATE OR ALTER VIEW VW_CUSTOMER_ALLERGIES AS
+SELECT C.CustomerID, C.FirstName, C.LastName,
+       A.AllergenID, A.AllergenName, CA.Severity, A.SafetyNote
+FROM   CUSTOMER C
+JOIN   CUSTOMER_ALLERGY CA ON CA.CustomerID = C.CustomerID
+JOIN   ALLERGEN A          ON A.AllergenID  = CA.AllergenID;
+GO
+
+/* ===================== QUERIES THE APP USES ===================== */
+
+-- Q1. What is this customer allergic to? (customer 1 as the example)
+SELECT FirstName, LastName, AllergenName, Severity, SafetyNote
+FROM   VW_CUSTOMER_ALLERGIES
+WHERE  CustomerID = 1
+ORDER BY CASE Severity WHEN 'Severe' THEN 1 WHEN 'Moderate' THEN 2 ELSE 3 END;
+
+-- Q2. Which dishes are safe for this customer? (the filtered menu)
+SELECT Category, ItemName, Price
+FROM   VW_SAFE_MENU
+WHERE  CustomerID = 1
+ORDER BY Category, ItemName;
+
+-- Q3. Which dishes must this customer avoid, and why?
+SELECT M.ItemName, M.Category,
+       STRING_AGG(A.AllergenName, ', ') WITHIN GROUP (ORDER BY A.AllergenName) AS ConflictingAllergens
+FROM   CUSTOMER_ALLERGY CA
+JOIN   MENU_ALLERGEN MA ON MA.AllergenID = CA.AllergenID
+JOIN   MENU_ITEM M      ON M.MenuItemID  = MA.MenuItemID
+JOIN   ALLERGEN A       ON A.AllergenID  = CA.AllergenID
+WHERE  CA.CustomerID = 1
+GROUP BY M.ItemName, M.Category
+ORDER BY M.Category, M.ItemName;
+
+/* ===================== REPORTS ===================== */
+
+-- Q4. Which menu items are free of all tracked allergens? (outer join)
+SELECT M.ItemName, M.Category, M.Price
+FROM   MENU_ITEM M
+LEFT JOIN MENU_ALLERGEN MA ON MA.MenuItemID = M.MenuItemID
+WHERE  MA.MenuItemID IS NULL
+ORDER BY M.Category, M.ItemName;
+
+-- Q5. Which allergens are most common among our customers?
+SELECT A.AllergenName,
+       COUNT(CA.CustomerID)                                       AS Customers,
+       SUM(CASE WHEN CA.Severity = 'Severe' THEN 1 ELSE 0 END)    AS SevereCases
+FROM   ALLERGEN A
+LEFT JOIN CUSTOMER_ALLERGY CA ON CA.AllergenID = A.AllergenID
+GROUP BY A.AllergenName
+ORDER BY Customers DESC, SevereCases DESC, A.AllergenName;
+
+-- Q6. How much of the menu does each allergen affect?
+SELECT A.AllergenName,
+       COUNT(MA.MenuItemID) AS MenuItems,
+       CAST(100.0 * COUNT(MA.MenuItemID) / (SELECT COUNT(*) FROM MENU_ITEM) AS DECIMAL(5,1)) AS PercentOfMenu
+FROM   ALLERGEN A
+LEFT JOIN MENU_ALLERGEN MA ON MA.AllergenID = A.AllergenID
+GROUP BY A.AllergenName
+ORDER BY MenuItems DESC, A.AllergenName;
+
+-- Q7. Which menu items contain the most allergens, and which ones?
+SELECT M.ItemName, M.Category,
+       COUNT(*) AS AllergenCount,
+       STRING_AGG(A.AllergenName, ', ') WITHIN GROUP (ORDER BY A.AllergenName) AS Allergens
+FROM   MENU_ITEM M
+JOIN   MENU_ALLERGEN MA ON MA.MenuItemID = M.MenuItemID
+JOIN   ALLERGEN A       ON A.AllergenID  = MA.AllergenID
+GROUP BY M.ItemName, M.Category
+ORDER BY AllergenCount DESC, M.ItemName;
+
+-- Q8. Which customers have a severe allergy? (staff alert list)
+SELECT LastName, FirstName, AllergenName, SafetyNote
+FROM   VW_CUSTOMER_ALLERGIES
+WHERE  Severity = 'Severe'
+ORDER BY LastName, FirstName, AllergenName;
+
+-- Q9. How many safe dishes does each customer have to choose from?
+--     (customers at the top have the fewest options)
+SELECT C.CustomerID, C.FirstName, C.LastName,
+       (SELECT COUNT(*) FROM CUSTOMER_ALLERGY CA WHERE CA.CustomerID = C.CustomerID) AS Allergies,
+       COUNT(S.MenuItemID) AS SafeDishes
+FROM   CUSTOMER C
+LEFT JOIN VW_SAFE_MENU S ON S.CustomerID = C.CustomerID
+GROUP BY C.CustomerID, C.FirstName, C.LastName
+ORDER BY SafeDishes, C.LastName;
+
+-- Q10. Sales by menu category (cancelled orders left out)
+SELECT M.Category,
+       SUM(OI.Quantity)           AS UnitsSold,
+       SUM(OI.Quantity * M.Price) AS Revenue
+FROM   ORDER_ITEM OI
+JOIN   ORDERS O    ON O.OrderID    = OI.OrderID
+JOIN   MENU_ITEM M ON M.MenuItemID = OI.MenuItemID
+WHERE  O.OrderStatus <> 'Cancelled'
+GROUP BY M.Category
+ORDER BY Revenue DESC;
+
+-- Q11. The five best-selling menu items
+SELECT TOP 5 M.ItemName, M.Category,
+       SUM(OI.Quantity)           AS UnitsSold,
+       SUM(OI.Quantity * M.Price) AS Revenue
+FROM   ORDER_ITEM OI
+JOIN   ORDERS O    ON O.OrderID    = OI.OrderID
+JOIN   MENU_ITEM M ON M.MenuItemID = OI.MenuItemID
+WHERE  O.OrderStatus <> 'Cancelled'
+GROUP BY M.ItemName, M.Category
+ORDER BY UnitsSold DESC, Revenue DESC;
+
+-- Q12. Customers who have spent more than the average customer (HAVING + subquery)
+SELECT C.CustomerID, C.FirstName, C.LastName,
+       COUNT(*)           AS Orders,
+       SUM(O.TotalAmount) AS TotalSpent
+FROM   CUSTOMER C
+JOIN   ORDERS O ON O.CustomerID = C.CustomerID
+WHERE  O.OrderStatus <> 'Cancelled'
+GROUP BY C.CustomerID, C.FirstName, C.LastName
+HAVING SUM(O.TotalAmount) > (SELECT AVG(T.Spent)
+                             FROM (SELECT SUM(TotalAmount) AS Spent
+                                   FROM   ORDERS
+                                   WHERE  OrderStatus <> 'Cancelled'
+                                   GROUP BY CustomerID) AS T)
+ORDER BY TotalSpent DESC;
+
+-- Q13. Orders and revenue per month
+SELECT CONVERT(CHAR(7), OrderDate, 126) AS OrderMonth,
+       COUNT(*)                         AS Orders,
+       SUM(TotalAmount)                 AS Revenue,
+       CAST(AVG(TotalAmount) AS DECIMAL(8,2)) AS AverageOrder
+FROM   ORDERS
+WHERE  OrderStatus <> 'Cancelled'
+GROUP BY CONVERT(CHAR(7), OrderDate, 126)
+ORDER BY OrderMonth;
+GO
+
+
